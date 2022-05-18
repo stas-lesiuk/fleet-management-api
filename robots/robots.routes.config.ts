@@ -1,6 +1,8 @@
 import express from "express";
 
 import { CommonRoutesConfig } from "../common/common.routes.config";
+import RobotsController from "./controllers/robots.controller";
+import RobotsMiddleware from "./middleware/robots.middleware";
 
 export class RobotsRoutes extends CommonRoutesConfig {
   constructor(app: express.Application) {
@@ -8,35 +10,33 @@ export class RobotsRoutes extends CommonRoutesConfig {
   }
 
   configureRoutes() {
+    this.app
+      .route(`/robots`)
+      .get(RobotsController.listRobots)
+      .post(
+        RobotsMiddleware.validateRequiredRobotBodyFields,
+        RobotsMiddleware.validateSameIpDoesntExist,
+        RobotsController.createRobot
+      );
 
-    this.app.route(`/robots`)
-        .get((req: express.Request, res: express.Response) => {
-            res.status(200).send(`List of robots`);
-        })
-        .post((req: express.Request, res: express.Response) => {
-            res.status(200).send(`Post to robots`);
-        });
+    this.app.param(`robotId`, RobotsMiddleware.extractRobotId);
+    this.app
+      .route(`/robots/:robotId`)
+      .all(RobotsMiddleware.validateRobotExists)
+      .get(RobotsController.getRobotById)
+      .delete(RobotsController.removeRobot);
 
-    this.app.route(`/robots/:robotId`)
-        .all((req: express.Request, res: express.Response, next: express.NextFunction) => {
-            // this middleware function runs before any request to /robots/:robotId
-            // but it doesn't accomplish anything just yet---
-            // it simply passes control to the next applicable function below using next()
-            next();
-        })
-        .get((req: express.Request, res: express.Response) => {
-            res.status(200).send(`GET requested for id ${req.params.robotId}`);
-        })
-        .put((req: express.Request, res: express.Response) => {
-            res.status(200).send(`PUT requested for id ${req.params.robotId}`);
-        })
-        .patch((req: express.Request, res: express.Response) => {
-            res.status(200).send(`PATCH requested for id ${req.params.robotId}`);
-        })
-        .delete((req: express.Request, res: express.Response) => {
-            res.status(200).send(`DELETE requested for id ${req.params.robotId}`);
-        });
+    this.app.put(`/robots/:robotId`, [
+      RobotsMiddleware.validateRequiredRobotBodyFields,
+      RobotsMiddleware.validateSameIpBelongToSameRobot,
+      RobotsController.put,
+    ]);
+
+    this.app.patch(`/robots/:robotId`, [
+      RobotsMiddleware.validatePatchIP,
+      RobotsController.patch,
+    ]);
 
     return this.app;
-}
+  }
 }
